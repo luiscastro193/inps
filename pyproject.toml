@@ -1,0 +1,15 @@
+[build-system]
+requires = ["flit_core >=3.2,<4"]
+build-backend = "flit_core.buildapi"
+
+[project]
+name = "inps"
+authors = [{name = "Luis Castro Martín", email = "luiscastro193@gmail.com"}]
+readme = "README.md"
+license = {file = "LICENSE"}
+classifiers = ["License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)"]
+dynamic = ["version", "description"]
+dependencies = ["numpy", "pandas", "scipy", "scikit-learn>=1.1"]
+
+[project.urls]
+Home = "https://github.com/luiscastro193/inps"
