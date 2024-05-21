@@ -1,10 +1,11 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.0"
+__version__ = "1.1"
 
 from math import sqrt
 import numpy as np
 import pandas as pd
+import sklearn
 from pandas.api.types import is_numeric_dtype
 from scipy.stats import iqr
 from sklearn.compose import ColumnTransformer
@@ -16,32 +17,29 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import StratifiedKFold
 from sklearn.linear_model import RidgeCV, LogisticRegressionCV
 
-class PreprocessEstimator(Pipeline):
-	def __init__(self, **kwargs):
-		super().__init__((
-			("preprocess", kwargs["preprocess"]),
-			("estimator", kwargs["estimator"])
-		))
-	
-	def fit(self, X, y, sample_weight = None):
-		if sample_weight is None:
-			return super().fit(X, y)
-		else:
-			return super().fit(X, y, estimator__sample_weight = sample_weight)
+sklearn.set_config(enable_metadata_routing = True)
 
 def default_preprocess(**kwargs):
-	return ColumnTransformer((
-		("numeric", Pipeline((
+	return ColumnTransformer([
+		("numeric", Pipeline([
 			("normalizer", RobustScaler()),
 			("imputer", SimpleImputer(strategy = 'median', add_indicator = True, copy = False))
-		)), column_selector(dtype_include = 'number')),
+		]), column_selector(dtype_include = 'number')),
 		("categorical",
 			OneHotEncoder(drop = 'if_binary', min_frequency = .05, handle_unknown = 'infrequent_if_exist'),
 		column_selector(dtype_exclude = 'number'))
-	), **kwargs)
+	], **kwargs)
 
 def make_preprocess_estimator(base_estimator, **kwargs):
-	return PreprocessEstimator(preprocess = default_preprocess(**kwargs), estimator = base_estimator)
+	if hasattr(base_estimator, "set_fit_request"):
+		base_estimator = base_estimator.set_fit_request(sample_weight = True)
+	if hasattr(base_estimator, "set_score_request"):
+		base_estimator = base_estimator.set_score_request(sample_weight = True)
+	
+	return Pipeline([
+		("preprocess", default_preprocess(**kwargs)),
+		("estimator", base_estimator)
+	])
 
 def logistic_classifier(**kwargs):
 	return make_preprocess_estimator(LogisticRegressionCV(cv = StratifiedKFold(shuffle = True, random_state = 0), scoring = 'neg_log_loss', max_iter = 1000, **kwargs))
@@ -50,7 +48,7 @@ def linear_regressor(**kwargs):
 	return make_preprocess_estimator(RidgeCV(**kwargs))
 
 def calibration_weights(sample, population_totals, weights_column = None, population_size = None, max_steps = 1000, tolerance = 1e-6):
-	X = sample.loc[:, population_totals.index].to_numpy()
+	X = sample.loc[:, population_totals.index].to_numpy(dtype = 'float64')
 	
 	if weights_column is not None:
 		d = sample[weights_column].to_numpy()
