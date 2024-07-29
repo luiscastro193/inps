@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.1"
+__version__ = "1.1.1"
 
 from math import sqrt
 import numpy as np
@@ -91,11 +91,11 @@ def propensities(np_sample, p_sample, weights_column = None, covariates = None, 
 	if model is None: model = logistic_classifier()
 	
 	X = pd.concat((np_sample, p_sample), ignore_index = True, join = "inner")
-	y = np.concatenate((np.ones(np_size, dtype = int), np.zeros(p_size, dtype = int)))
+	y = np.concatenate((np.ones(np_size, dtype = bool), np.zeros(p_size, dtype = bool)))
 	sample_weight = np.concatenate((np.repeat(np.sum(weights) / np_size, np_size), weights))
 	sample_weight /= np.mean(sample_weight)
 	model.fit(X, y, sample_weight = sample_weight)
-	return model.predict_proba(X)[:, tuple(model.classes_).index(1)]
+	return model.predict_proba(X)[:, tuple(model.classes_).index(True)]
 
 def psa_weights(np_sample, p_sample, population_size, weights_column = None, covariates = None, model = None):
 	np_size = np_sample.shape[0]
