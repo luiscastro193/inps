@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 
 from math import sqrt
 import numpy as np
@@ -90,7 +90,7 @@ def propensities(np_sample, p_sample, weights_column = None, covariates = None, 
 	
 	if model is None: model = logistic_classifier()
 	
-	X = pd.concat((np_sample, p_sample), ignore_index = True, join = "inner")
+	X = pd.concat((np_sample, p_sample), ignore_index = True, join = "inner", copy = False)
 	y = np.concatenate((np.ones(np_size, dtype = bool), np.zeros(p_size, dtype = bool)))
 	sample_weight = np.concatenate((np.repeat(np.sum(weights) / np_size, np_size), weights))
 	sample_weight /= np.mean(sample_weight)
