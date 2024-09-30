@@ -1,12 +1,12 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.1.3"
+__version__ = "1.2"
 
 from math import sqrt
 import numpy as np
 import pandas as pd
 import sklearn
-from pandas.api.types import is_numeric_dtype
+import pandas.api.types as types
 from scipy.stats import iqr
 from sklearn.compose import ColumnTransformer
 from sklearn.compose import make_column_selector as column_selector
@@ -16,6 +16,7 @@ from sklearn.preprocessing import RobustScaler
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import StratifiedKFold
 from sklearn.linear_model import RidgeCV, LogisticRegressionCV
+from sklearn.ensemble import HistGradientBoostingRegressor, HistGradientBoostingClassifier
 
 sklearn.set_config(enable_metadata_routing = True)
 
@@ -46,6 +47,20 @@ def logistic_classifier(**kwargs):
 
 def linear_regressor(**kwargs):
 	return make_preprocess_estimator(RidgeCV(**kwargs))
+
+valid_dtypes = (types.is_numeric_dtype, lambda dtype: isinstance(dtype, types.CategoricalDtype), types.is_datetime64_any_dtype, types.is_timedelta64_dtype)
+
+def set_categories(data):
+	invalid_columns = [column for column, dtype in data.dtypes.items() if not any(is_dtype(dtype) for is_dtype in valid_dtypes)]
+	data[invalid_columns] = data[invalid_columns].astype("category", copy = False)
+
+def boosting_classifier(**kwargs):
+	my_model = HistGradientBoostingClassifier(categorical_features = 'from_dtype', random_state = 0, early_stopping = True, max_iter = 1000, **kwargs)
+	return my_model.set_fit_request(sample_weight = True).set_score_request(sample_weight = True)
+
+def boosting_regressor(**kwargs):
+	my_model = HistGradientBoostingRegressor(categorical_features = 'from_dtype', random_state = 0, early_stopping = True, max_iter = 1000, **kwargs)
+	return my_model.set_fit_request(sample_weight = True).set_score_request(sample_weight = True)
 
 def calibration_weights(sample, population_totals, weights_column = None, population_size = None, max_steps = 1000, tolerance = 1e-6):
 	X = sample.loc[:, population_totals.index].to_numpy(dtype = 'float64')
@@ -91,6 +106,7 @@ def propensities(np_sample, p_sample, weights_column = None, covariates = None, 
 	if model is None: model = logistic_classifier()
 	
 	X = pd.concat((np_sample, p_sample), ignore_index = True, join = "inner", copy = False)
+	set_categories(X)
 	y = np.concatenate((np.ones(np_size, dtype = bool), np.zeros(p_size, dtype = bool)))
 	sample_weight = np.concatenate((np.repeat(np.sum(weights) / np_size, np_size), weights))
 	sample_weight /= np.mean(sample_weight)
@@ -112,7 +128,7 @@ def matching_values(np_sample, p_sample, target_column, target_category = None, 
 	
 	if y.isna().any(): raise ValueError("Missing values in target column")
 	
-	if not is_numeric_dtype(y) and target_category is None:
+	if not types.is_numeric_dtype(y) and target_category is None:
 		raise ValueError("target_category must be set when the target variable is categorical.")
 	
 	if target_category is not None: y = y == target_category
@@ -125,6 +141,9 @@ def matching_values(np_sample, p_sample, target_column, target_category = None, 
 	
 	np_sample = np_sample.loc[:, covariates]
 	p_sample = p_sample.loc[:, covariates]
+	
+	set_categories(np_sample)
+	set_categories(p_sample)
 	
 	if training_weight is None:
 		model.fit(np_sample, y)

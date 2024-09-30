@@ -173,3 +173,7 @@ cat_imputed_values = inps.training_values(np_sample, population, "target_cat", "
 mean_estimation = np.average(imputed_values["p"])
 proportion_estimation = np.average(cat_imputed_values["p"])
 ```
+
+### Advanced models
+
+`inps.boosting_classifier()` and `inps.boosting_regressor()` will return advanced Gradient Boosting estimators ready to use for optimal results.
