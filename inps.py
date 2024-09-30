@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.1.2"
+__version__ = "1.1.3"
 
 from math import sqrt
 import numpy as np
@@ -97,7 +97,7 @@ def propensities(np_sample, p_sample, weights_column = None, covariates = None, 
 	model.fit(X, y, sample_weight = sample_weight)
 	return model.predict_proba(X)[:, tuple(model.classes_).index(True)]
 
-def psa_weights(np_sample, p_sample, population_size, weights_column = None, covariates = None, model = None):
+def psa_weights(np_sample, p_sample, population_size = None, weights_column = None, covariates = None, model = None):
 	np_size = np_sample.shape[0]
 	my_propensities = propensities(np_sample, p_sample, weights_column, covariates, model)
 	optimal_weights = (1 - my_propensities) / my_propensities
@@ -155,7 +155,7 @@ def training_values(np_sample, p_sample, target_column, target_category = None, 
 	training_weight = psa_weights(np_sample, p_sample, None, weights_column, covariates, psa_model)["np"]
 	return matching_values(np_sample, p_sample, target_column, target_category, covariates, matching_model, training_weight)
 
-def kw_weights(np_sample, p_sample, population_size, weights_column = None, covariates = None, model = None):
+def kw_weights(np_sample, p_sample, population_size = None, weights_column = None, covariates = None, model = None):
 	np_size = np_sample.shape[0]
 	my_propensities = propensities(np_sample, p_sample, weights_column, covariates, model)
 	
