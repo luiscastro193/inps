@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.4"
+__version__ = "1.5"
 
 from math import sqrt
 import numpy as np
@@ -68,8 +68,8 @@ def calibrate(covariates, target_covariates):
 	target_covariates = scaler.transform(target_covariates)
 	num_samples, num_covariates = covariates.shape
 	z = np.hstack((np.expand_dims(np.ones(num_samples), 1), covariates - target_covariates))
-	weight_link = lambda x: np.exp(np.minimum(x, np.log(1e8)))
-	beta_init = np.zeros(num_covariates + 1)
+	weight_link = lambda x: np.clip(x, 0, 1)
+	beta_init = np.linalg.pinv(z.T @ z) @ np.concatenate((np.ones(1), np.zeros(num_covariates)))
 	
 	def estimating_equation(beta):
 		weights = weight_link(np.dot(z, beta))
