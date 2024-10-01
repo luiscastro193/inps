@@ -1,19 +1,17 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.5"
+__version__ = "1.6"
 
 from math import sqrt
 import numpy as np
 import pandas as pd
 import sklearn
 import pandas.api.types as types
-from scipy.optimize import fsolve
-from scipy.stats import iqr
 from sklearn.compose import ColumnTransformer
 from sklearn.compose import make_column_selector as column_selector
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import RobustScaler, OneHotEncoder, MinMaxScaler
+from sklearn.preprocessing import RobustScaler, OneHotEncoder
 from sklearn.model_selection import StratifiedKFold
 from sklearn.linear_model import RidgeCV, LogisticRegressionCV
 from sklearn.ensemble import HistGradientBoostingRegressor, HistGradientBoostingClassifier
@@ -62,40 +60,35 @@ def boosting_regressor(**kwargs):
 	my_model = HistGradientBoostingRegressor(categorical_features = 'from_dtype', random_state = 0, early_stopping = True, max_iter = 1000, **kwargs)
 	return my_model.set_fit_request(sample_weight = True).set_score_request(sample_weight = True)
 
-def calibrate(covariates, target_covariates):
-	scaler = MinMaxScaler(copy = False)
-	covariates = scaler.fit_transform(covariates)
-	target_covariates = scaler.transform(target_covariates)
-	num_samples, num_covariates = covariates.shape
-	z = np.hstack((np.expand_dims(np.ones(num_samples), 1), covariates - target_covariates))
-	weight_link = lambda x: np.clip(x, 0, 1)
-	beta_init = np.linalg.pinv(z.T @ z) @ np.concatenate((np.ones(1), np.zeros(num_covariates)))
-	
-	def estimating_equation(beta):
-		weights = weight_link(np.dot(z, beta))
-		slack = np.zeros(len(beta[1:]))
-		return np.dot(z.T, weights) + np.concatenate((-np.ones(1), slack))
-	
-	beta = fsolve(estimating_equation, beta_init)
-	weights = weight_link(np.dot(z, beta))
-	if np.abs(np.sum(weights) - 1) > 1e-3: raise Exception("Calibration did not converge")
-	return weights
-
-def calibration_weights(sample, population_totals, weights_column = None, population_size = None):
+def calibration_weights(sample, population_totals, weights_column = None, population_size = None, max_steps = 1000, tolerance = 1e-6):
 	if weights_column is not None:
 		valid = sample[weights_column].notna()
-		baseline_weights = sample.loc[valid, weights_column]
-		sample = sample.loc[valid, population_totals.index].mul(baseline_weights, axis = 0)
-		baseline_weights *= sample.shape[0]
+		d = sample.loc[valid, weights_column]
+		X = sample.loc[valid, population_totals.index].to_numpy(dtype = 'float64')
+		X = X * d.to_numpy().reshape(-1, 1)
 	elif population_size is not None:
-		baseline_weights = population_size / sample.shape[0]
-		sample = sample.loc[:, population_totals.index] * baseline_weights
-		baseline_weights = population_size
+		X = sample[population_totals.index].to_numpy(dtype = 'float64')
+		d = population_size / X.shape[0]
+		X = X * d
 	else:
 		raise ValueError("weights_column or population_size must be set")
 	
-	population_totals = (population_totals / sample.shape[0]).to_frame().T
-	return calibrate(sample, population_totals) * baseline_weights
+	T = population_totals.to_numpy()
+	L = np.zeros(X.shape[1])
+	w = np.ones(X.shape[0])
+	success = False
+	
+	for step in range(max_steps):
+		L += np.dot(np.linalg.pinv(np.dot(np.multiply(X.T, w), X)), (T - np.dot(X.T, w)))
+		w = np.exp(np.dot(X, L))
+		
+		loss = np.max(np.abs(np.dot(X.T, w) - T) / T)
+		if loss < tolerance:
+			success = True
+			break
+	
+	if not success: raise Exception("Calibration did not converge")
+	return w * d
 
 def propensities(np_sample, p_sample, weights_column = None, covariates = None, model = None):
 	np_size = np_sample.shape[0]
@@ -176,6 +169,10 @@ def doubly_robust_estimation(np_sample, p_sample, target_column, target_category
 def training_values(np_sample, p_sample, target_column, target_category = None, weights_column = None, covariates = None, psa_model = None, matching_model = None):
 	training_weight = psa_weights(np_sample, p_sample, None, weights_column, covariates, psa_model)["np"]
 	return matching_values(np_sample, p_sample, target_column, target_category, covariates, matching_model, training_weight)
+
+def iqr(array):
+	percentiles = np.nanpercentile(array, (25, 97), method = "median_unbiased")
+	return percentiles[1] - percentiles[0]
 
 def kw_weights(np_sample, p_sample, population_size = None, weights_column = None, covariates = None, model = None):
 	np_size = np_sample.shape[0]
