@@ -1,12 +1,13 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.2"
+__version__ = "1.3"
 
 from math import sqrt
 import numpy as np
 import pandas as pd
 import sklearn
 import pandas.api.types as types
+from scipy.optimize import fsolve
 from scipy.stats import iqr
 from sklearn.compose import ColumnTransformer
 from sklearn.compose import make_column_selector as column_selector
@@ -62,37 +63,39 @@ def boosting_regressor(**kwargs):
 	my_model = HistGradientBoostingRegressor(categorical_features = 'from_dtype', random_state = 0, early_stopping = True, max_iter = 1000, **kwargs)
 	return my_model.set_fit_request(sample_weight = True).set_score_request(sample_weight = True)
 
-def calibration_weights(sample, population_totals, weights_column = None, population_size = None, max_steps = 1000, tolerance = 1e-6):
-	X = sample.loc[:, population_totals.index].to_numpy(dtype = 'float64')
+def calibrate(covariates, target_covariates):
+	num_samples, num_covariates = covariates.shape
+	z = np.hstack((np.expand_dims(np.ones(num_samples), 1), covariates - target_covariates))
+	weight_link = lambda x: np.exp(np.minimum(x, np.log(1e8)))
+	beta_init = np.zeros(num_covariates + 1)
 	
+	def estimating_equation(beta):
+		weights = weight_link(np.dot(z, beta))
+		slack = np.zeros(len(beta[1:]))
+		return np.dot(z.T, weights) + np.concatenate((-np.ones(1), slack))
+	
+	beta, info_dict, status, msg = fsolve(estimating_equation, beta_init, full_output = True)
+	weights = weight_link(np.dot(z, beta))
+	
+	if np.abs(np.sum(weights) - 1.0) > 1e-3: return weights, False
+	return weights, status == 1
+
+def calibration_weights(sample, population_totals, weights_column = None, population_size = None):
 	if weights_column is not None:
-		d = sample[weights_column].to_numpy()
-		X = X * d.reshape(-1, 1)
+		valid = sample[weights_column].notna()
+		baseline_weights = sample.loc[valid, weights_column]
+		sample = sample.loc[valid, population_totals.index].mul(baseline_weights, axis = 0)
+		baseline_weights *= sample.shape[0]
 	elif population_size is not None:
-		d = population_size / X.shape[0]
-		X = X * d
+		baseline_weights = population_size / sample.shape[0]
+		sample = sample.loc[:, population_totals.index] * baseline_weights
+		baseline_weights = population_size
 	else:
 		raise ValueError("weights_column or population_size must be set")
 	
-	T = population_totals.to_numpy()
-	L = np.zeros(X.shape[1])
-	w = np.ones(X.shape[0])
-	H = np.eye(X.shape[0])
-	success = False
-	
-	for step in range(max_steps):
-		L += np.dot(np.linalg.pinv(np.dot(np.dot(X.T, H), X)), (T - np.dot(X.T, w)))
-		w = np.exp(np.dot(X, L))
-		
-		loss = np.max(np.abs(np.dot(X.T, w) - T) / T)
-		if loss < tolerance:
-			success = True
-			break
-		
-		H = np.diag(w)
-	
+	weights, success = calibrate(sample, population_totals / sample.shape[0])
 	if not success: raise Exception("Calibration did not converge")
-	return w * d
+	return weights * baseline_weights
 
 def propensities(np_sample, p_sample, weights_column = None, covariates = None, model = None):
 	np_size = np_sample.shape[0]
