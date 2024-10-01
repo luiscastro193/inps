@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.3"
+__version__ = "1.4"
 
 from math import sqrt
 import numpy as np
@@ -13,8 +13,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.compose import make_column_selector as column_selector
 from sklearn.pipeline import Pipeline
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import RobustScaler
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import RobustScaler, OneHotEncoder, MinMaxScaler
 from sklearn.model_selection import StratifiedKFold
 from sklearn.linear_model import RidgeCV, LogisticRegressionCV
 from sklearn.ensemble import HistGradientBoostingRegressor, HistGradientBoostingClassifier
@@ -64,6 +63,9 @@ def boosting_regressor(**kwargs):
 	return my_model.set_fit_request(sample_weight = True).set_score_request(sample_weight = True)
 
 def calibrate(covariates, target_covariates):
+	scaler = MinMaxScaler(copy = False)
+	covariates = scaler.fit_transform(covariates)
+	target_covariates = scaler.transform(target_covariates)
 	num_samples, num_covariates = covariates.shape
 	z = np.hstack((np.expand_dims(np.ones(num_samples), 1), covariates - target_covariates))
 	weight_link = lambda x: np.exp(np.minimum(x, np.log(1e8)))
@@ -74,11 +76,10 @@ def calibrate(covariates, target_covariates):
 		slack = np.zeros(len(beta[1:]))
 		return np.dot(z.T, weights) + np.concatenate((-np.ones(1), slack))
 	
-	beta, info_dict, status, msg = fsolve(estimating_equation, beta_init, full_output = True)
+	beta = fsolve(estimating_equation, beta_init)
 	weights = weight_link(np.dot(z, beta))
-	
-	if np.abs(np.sum(weights) - 1.0) > 1e-3: return weights, False
-	return weights, status == 1
+	if np.abs(np.sum(weights) - 1) > 1e-3: raise Exception("Calibration did not converge")
+	return weights
 
 def calibration_weights(sample, population_totals, weights_column = None, population_size = None):
 	if weights_column is not None:
@@ -93,9 +94,8 @@ def calibration_weights(sample, population_totals, weights_column = None, popula
 	else:
 		raise ValueError("weights_column or population_size must be set")
 	
-	weights, success = calibrate(sample, population_totals / sample.shape[0])
-	if not success: raise Exception("Calibration did not converge")
-	return weights * baseline_weights
+	population_totals = (population_totals / sample.shape[0]).to_frame().T
+	return calibrate(sample, population_totals) * baseline_weights
 
 def propensities(np_sample, p_sample, weights_column = None, covariates = None, model = None):
 	np_size = np_sample.shape[0]
