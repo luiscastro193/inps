@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.6"
+__version__ = "1.7"
 
 from math import sqrt
 import numpy as np
@@ -82,7 +82,7 @@ def calibration_weights(sample, population_totals, weights_column = None, popula
 		L += np.dot(np.linalg.pinv(np.dot(np.multiply(X.T, w), X)), (T - np.dot(X.T, w)))
 		w = np.exp(np.dot(X, L))
 		
-		loss = np.max(np.abs(np.dot(X.T, w) - T) / T)
+		loss = np.max(np.abs((np.dot(X.T, w) - T) / T))
 		if loss < tolerance:
 			success = True
 			break
