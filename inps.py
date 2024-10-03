@@ -1,8 +1,7 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.7"
+__version__ = "1.8"
 
-from math import sqrt
 import numpy as np
 import pandas as pd
 import sklearn
@@ -179,7 +178,7 @@ def kw_weights(np_sample, p_sample, population_size = None, weights_column = Non
 	my_propensities = propensities(np_sample, p_sample, weights_column, covariates, model)
 	
 	distances = my_propensities[np_size:].reshape(-1, 1) - my_propensities[:np_size]
-	m = min(sqrt(np.var(distances)), iqr(distances) / 1.349)
+	m = min(np.std(distances), iqr(distances) / 1.349)
 	h = 0.9 * m / pow(distances.size, 1/5)
 	kernels = np.exp(-distances**2 / (2*h*h))
 	kernels[kernels == 0] = np.min(kernels[kernels != 0])
