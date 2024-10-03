@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.10"
+__version__ = "1.11"
 
 import numpy as np
 import pandas as pd
@@ -183,7 +183,7 @@ def kw_weights(np_sample, p_sample, population_size = None, weights_column = Non
 	kernels **= 2
 	kernels /= -2*h*h
 	np.exp(kernels, out = kernels)
-	kernels[kernels == 0] = 1.49012e-8
+	np.clip(kernels, 1.49012e-8, None, out = kernels)
 	kernels /= np.sum(kernels, axis = 1).reshape(-1, 1)
 	if weights_column is not None: kernels *= p_sample[weights_column].to_numpy().reshape(-1, 1)
 	kernels = np.sum(kernels, axis = 0)
