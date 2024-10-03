@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.8"
+__version__ = "1.9"
 
 import numpy as np
 import pandas as pd
@@ -177,17 +177,15 @@ def kw_weights(np_sample, p_sample, population_size = None, weights_column = Non
 	np_size = np_sample.shape[0]
 	my_propensities = propensities(np_sample, p_sample, weights_column, covariates, model)
 	
-	distances = my_propensities[np_size:].reshape(-1, 1) - my_propensities[:np_size]
-	m = min(np.std(distances), iqr(distances) / 1.349)
-	h = 0.9 * m / pow(distances.size, 1/5)
-	kernels = np.exp(-distances**2 / (2*h*h))
+	kernels = my_propensities[np_size:].reshape(-1, 1) - my_propensities[:np_size]
+	m = min(np.std(kernels), iqr(kernels) / 1.349)
+	h = 0.9 * m / pow(kernels.size, 1/5)
+	kernels **= 2
+	kernels /= -2*h*h
+	np.exp(kernels, out = kernels)
 	kernels[kernels == 0] = np.min(kernels[kernels != 0])
 	kernels /= np.sum(kernels, axis = 1).reshape(-1, 1)
-	
-	if weights_column is None:
-		kernels = np.sum(kernels, axis = 0)
-	else:
-		kernels = np.sum(kernels * p_sample[weights_column].to_numpy().reshape(-1, 1), axis = 0)
-	
+	if weights_column is not None: kernels *= p_sample[weights_column].to_numpy().reshape(-1, 1)
+	kernels = np.sum(kernels, axis = 0)
 	if population_size: kernels *= population_size / np.sum(kernels)
 	return kernels
