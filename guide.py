@@ -30,9 +30,9 @@ psa_weights2 = inps.psa_weights(np_sample, p_sample, population_size, covariates
 kw_weights2 = inps.kw_weights(np_sample, p_sample, population_size, covariates = psa_covariates, model = XGBClassifier())
 
 target_var = "D4"
-naive_estimation = np.average(np_sample[target_var])
-psa_estimation = np.average(np_sample[target_var], weights = psa_weights["np"])
-kw_estimation = np.average(np_sample[target_var], weights = kw_weights)
+naive_estimation = inps.estimation(np_sample[target_var])
+psa_estimation = inps.estimation(np_sample[target_var], psa_weights["np"])
+kw_estimation = inps.estimation(np_sample[target_var], kw_weights)
 
 print(naive_estimation, psa_estimation, kw_estimation)
 
@@ -43,7 +43,7 @@ np_sample = pd.get_dummies(np_sample, prefix = '', prefix_sep = '', columns = ca
 
 np_sample["weights"] = psa_weights["np"]
 psa_calibration_weights = inps.calibration_weights(np_sample, population_totals, weights_column = "weights")
-psa_calibration_estimation = np.average(np_sample[target_var], weights = psa_calibration_weights)
+psa_calibration_estimation = inps.estimation(np_sample[target_var], psa_calibration_weights)
 
 print(psa_calibration_estimation)
 
@@ -80,9 +80,9 @@ np_sample['target_num'] = np_sample['i12_health_7'].map(lambda code: categories.
 matching_values = inps.matching_values(np_sample, p_sample, "target_num", covariates = covariates, model = inps.make_preprocess_estimator(MLPRegressor()))
 training_values = inps.training_values(np_sample, p_sample, "target_num", covariates = covariates, psa_model = XGBClassifier(enable_categorical = True, tree_method = "hist"), matching_model = XGBRegressor(enable_categorical = True, tree_method = "hist"))
 
-naive_estimation = np.average(np_sample['target_num'])
-matching_estimation = np.average(matching_values['p'])
-training_estimation = np.average(training_values['p'])
+naive_estimation = inps.estimation(np_sample['target_num'])
+matching_estimation = inps.estimation(matching_values['p'])
+training_estimation = inps.estimation(training_values['p'])
 
 dr_estimation = inps.doubly_robust_estimation(np_sample, p_sample, "target_num", covariates = covariates, matching_model = inps.make_preprocess_estimator(KNeighborsRegressor()))
 
@@ -91,8 +91,8 @@ print(naive_estimation, matching_estimation, training_estimation, dr_estimation)
 np_sample['target_cat'] = np_sample['target_num'] > 3
 training_values = inps.training_values(np_sample, p_sample, "target_cat", True, covariates = covariates)
 
-naive_estimation = np.average(np_sample['target_cat'])
-training_estimation = np.average(training_values['p'])
+naive_estimation = inps.estimation(np_sample['target_cat'])
+training_estimation = inps.estimation(training_values['p'])
 
 print(naive_estimation, training_estimation)
 
@@ -107,8 +107,8 @@ np_sample = np_sample[np_sample[target_var].notna()]
 imputed_values = inps.training_values(np_sample, population, target_var, target_category, covariates = covariates)
 imputed_values2 = inps.matching_values(np_sample, population, target_var, target_category, covariates = covariates, model = inps.make_preprocess_estimator(KNeighborsClassifier()))
 
-naive_estimation = np.average(np_sample[target_var] == target_category)
-model_estimation = np.average(imputed_values["p"])
-custom_model_estimation = np.average(imputed_values2["p"])
+naive_estimation = inps.estimation(np_sample[target_var] == target_category)
+model_estimation = inps.estimation(imputed_values["p"])
+custom_model_estimation = inps.estimation(imputed_values2["p"])
 
 print(naive_estimation, model_estimation, custom_model_estimation)

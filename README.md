@@ -69,10 +69,12 @@ calibration_weights = inps.calibration_weights(np_sample, population_totals, pop
 ```python
 calibration_weights2 = inps.calibration_weights(p_sample, population_totals, weights_column = "weights")
 ```
-The resulting weights are a numpy array which may be used for estimation as usual.
+Helper methods are provided for obtaining estimations and 95% confidence intervals.
 ```python
-mean_estimation = np.average(np_sample["target"], weights = calibration_weights)
-proportion_estimation = np.average(np_sample["target_cat"] == "Yes", weights = calibration_weights)
+mean_estimation = inps.estimation(np_sample["target"], calibration_weights)
+mean_interval = inps.confidence_interval(np_sample["target"], calibration_weights)
+proportion_estimation = inps.estimation(np_sample["target_cat"] == "Yes", calibration_weights)
+proportion_interval = inps.confidence_interval(np_sample["target_cat"] == "Yes", calibration_weights)
 ```
 
 ### Propensity Score Adjustment
@@ -99,16 +101,17 @@ psa_weights3 = inps.psa_weights(np_sample, p_sample, pop_size, weights_column = 
 ```
 The result is a dictionary with the `np_sample` and `p_sample` PSA weights as numpy arrays. The weights for the `np_sample` may be used for estimation as usual.
 ```python
-mean_estimation = np.average(np_sample["target"], weights = psa_weights["np"])
-proportion_estimation = np.average(np_sample["target_cat"] == "Yes", weights = psa_weights["np"])
+mean_estimation = inps.estimation(np_sample["target"], psa_weights["np"])
+mean_interval = inps.confidence_interval(np_sample["target"], psa_weights["np"])
+proportion_estimation = inps.estimation(np_sample["target_cat"] == "Yes", psa_weights["np"])
+proportion_interval = inps.confidence_interval(np_sample["target_cat"] == "Yes", psa_weights["np"])
 ```
 
 ### Statistical Matching
 
 Matching requires `np_sample`, `p_sample` and `target_column` (from `np_sample`).
 ```python
-mean_estimation = np.average(np_sample["target"], weights = psa_weights["np"])
-proportion_estimation = np.average(np_sample["target_cat"] == "Yes", weights = psa_weights["np"])
+matching_values = inps.matching_values(np_sample, p_sample, "target")
 ```
 It the target variable is categorical, a target category is required and probabilities are returned.
 ```python
@@ -128,8 +131,10 @@ matching_values3 = inps.matching_values(np_sample, p_sample, "target", model = i
 ```
 The result is a dictionary with the `p_sample` and `np_sample` imputed values (or probabilities if categorical) as numpy arrays. The values for the `p_sample` may be used for estimation as usual.
 ```python
-mean_estimation = np.average(matching_values["p"], weights = p_sample["weights"])
-proportion_estimation = np.average(cat_matching_values["p"], weights = p_sample["weights"])
+mean_estimation = inps.estimation(matching_values["p"], p_sample["weights"])
+mean_interval = inps.confidence_interval(matching_values["p"], p_sample["weights"])
+proportion_estimation = inps.estimation(cat_matching_values["p"], p_sample["weights"])
+proportion_estimation = inps.confidence_interval(cat_matching_values["p"], p_sample["weights"])
 ```
 
 ### Doubly robust
@@ -161,7 +166,7 @@ kw_weights = inps.kw_weights(np_sample, p_sample, pop_size, weights_column = "we
 ```
 A numpy array with the estimated weights for the `np_sample` is returned.
 ```python
-proportion_estimation = np.average(np_sample["target_cat"] == "Yes", weights = kw_weights)
+proportion_estimation = inps.estimation(np_sample["target_cat"] == "Yes", kw_weights)
 ```
 
 ### Working with census data
@@ -170,8 +175,10 @@ The exact same methods can be used when the "probabilistic sample" includes the 
 ```python
 imputed_values = inps.training_values(np_sample, population, "target")
 cat_imputed_values = inps.training_values(np_sample, population, "target_cat", "Yes")
-mean_estimation = np.average(imputed_values["p"])
-proportion_estimation = np.average(cat_imputed_values["p"])
+mean_estimation = inps.estimation(imputed_values["p"])
+mean_interval = inps.confidence_interval(imputed_values["p"])
+proportion_estimation = inps.estimation(cat_imputed_values["p"])
+proportion_interval = inps.confidence_interval(cat_imputed_values["p"])
 ```
 
 ### Advanced models

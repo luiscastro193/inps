@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.11"
+__version__ = "1.12"
 
 import numpy as np
 import pandas as pd
@@ -14,6 +14,7 @@ from sklearn.preprocessing import RobustScaler, OneHotEncoder
 from sklearn.model_selection import StratifiedKFold
 from sklearn.linear_model import RidgeCV, LogisticRegressionCV
 from sklearn.ensemble import HistGradientBoostingRegressor, HistGradientBoostingClassifier
+from scipy.stats import bootstrap
 
 sklearn.set_config(enable_metadata_routing = True)
 
@@ -189,3 +190,12 @@ def kw_weights(np_sample, p_sample, population_size = None, weights_column = Non
 	kernels = np.sum(kernels, axis = 0)
 	if population_size: kernels *= population_size / np.sum(kernels)
 	return kernels
+
+def estimation(values, weights = None, axis = None):
+	return np.average(values, weights = weights, axis = axis)
+
+def confidence_interval(values, weights = None):
+	data = (values,) if weights is None else (values, weights)
+	confidence_interval = bootstrap(data, estimation, paired = True,
+		n_resamples = 1000, random_state = 0, vectorized = True).confidence_interval
+	return (confidence_interval.low, confidence_interval.high)
