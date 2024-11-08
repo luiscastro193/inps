@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.12"
+__version__ = "1.13"
 
 import numpy as np
 import pandas as pd
@@ -121,23 +121,14 @@ def psa_weights(np_sample, p_sample, population_size = None, weights_column = No
 
 def matching_values(np_sample, p_sample, target_column, target_category = None, covariates = None, model = None, training_weight = None):
 	y = np_sample[target_column]
-	
 	if y.isna().any(): raise ValueError("Missing values in target column")
-	
-	if not types.is_numeric_dtype(y) and target_category is None:
-		raise ValueError("target_category must be set when the target variable is categorical.")
-	
+	is_numerical = types.is_numeric_dtype(y) and target_category is None
 	if target_category is not None: y = y == target_category
+	if model is None: model = linear_regressor() if is_numerical else logistic_classifier()
 	
-	if model is None:
-		model = linear_regressor() if target_category is None else logistic_classifier()
-	
-	if covariates is None:
-		covariates = np_sample.columns.intersection(p_sample.columns)
-	
+	if covariates is None: covariates = np_sample.columns.intersection(p_sample.columns)
 	np_sample = np_sample.loc[:, covariates]
 	p_sample = p_sample.loc[:, covariates]
-	
 	set_categories(np_sample)
 	set_categories(p_sample)
 	
@@ -148,14 +139,21 @@ def matching_values(np_sample, p_sample, target_column, target_category = None, 
 		model.fit(np_sample, y, sample_weight = training_weight)
 	
 	def predict(X):
-		if target_category is None:
+		if is_numerical:
 			return model.predict(X)
 		else:
-			return model.predict_proba(X)[:, tuple(model.classes_).index(True)]
+			probs = model.predict_proba(X)
+			if target_category is None:
+				return {"categories": model.classes_, "probs": probs}
+			else:
+				return probs[:, tuple(model.classes_).index(True)]
 	
 	return {"p": predict(p_sample), "np": predict(np_sample)}
 
 def doubly_robust_estimation(np_sample, p_sample, target_column, target_category = None, weights_column = None, covariates = None, psa_model = None, matching_model = None):
+	if not types.is_numeric_dtype(np_sample[target_column]) and target_category is None:
+		raise ValueError("target_category must be set when the target variable is categorical.")
+	
 	if weights_column is None:
 		weights = None
 	else:
