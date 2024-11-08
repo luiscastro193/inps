@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.13"
+__version__ = "1.14"
 
 import numpy as np
 import pandas as pd
@@ -169,7 +169,7 @@ def training_values(np_sample, p_sample, target_column, target_category = None, 
 	return matching_values(np_sample, p_sample, target_column, target_category, covariates, matching_model, training_weight)
 
 def iqr(array):
-	percentiles = np.nanpercentile(array, (25, 97), method = "median_unbiased")
+	percentiles = np.nanpercentile(array, (25, 75), method = "median_unbiased")
 	return percentiles[1] - percentiles[0]
 
 def kw_weights(np_sample, p_sample, population_size = None, weights_column = None, covariates = None, model = None):
