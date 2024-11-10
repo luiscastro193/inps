@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.14"
+__version__ = "1.15"
 
 import numpy as np
 import pandas as pd
@@ -135,7 +135,7 @@ def matching_values(np_sample, p_sample, target_column, target_category = None, 
 	if training_weight is None:
 		model.fit(np_sample, y)
 	else:
-		training_weight /= np.mean(training_weight)
+		training_weight = training_weight / np.mean(training_weight)
 		model.fit(np_sample, y, sample_weight = training_weight)
 	
 	def predict(X):
