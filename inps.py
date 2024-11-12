@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.16"
+__version__ = "1.17"
 
 import numpy as np
 import pandas as pd
@@ -193,7 +193,7 @@ def estimation(values, weights = None, axis = None):
 	return np.average(values, weights = weights, axis = axis)
 
 def confidence_interval(values, weights = None):
+	method = 'BCa' if len(values) <= 10000 else 'percentile'
 	data = (values,) if weights is None else (values, weights)
-	confidence_interval = bootstrap(data, estimation, paired = True, n_resamples = 1000,
-		random_state = 0, vectorized = True, batch = 1000).confidence_interval
+	confidence_interval = bootstrap(data, estimation, paired = True, n_resamples = 1000, method = method, random_state = 0, vectorized = True, batch = 1000).confidence_interval
 	return (confidence_interval.low, confidence_interval.high)
