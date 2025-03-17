@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.19"
+__version__ = "1.20"
 
 import numpy as np
 import pandas as pd
@@ -197,3 +197,14 @@ def confidence_interval(values, weights = None):
 	data = (values,) if weights is None else (values, weights)
 	ci = bootstrap(data, estimation, paired = True, n_resamples = 1000, method = method, random_state = 0, vectorized = True).confidence_interval
 	return (ci.low, ci.high)
+
+def advanced_confidence_interval(np_sample, p_sample, estimator):
+	estimation = estimator(np_sample, p_sample)
+	
+	def resample_estimator(np_index, p_index):
+		return estimator(np_sample.iloc[np_index], p_sample.iloc[p_index])
+	
+	ci = bootstrap((np.arange(np_sample.shape[0]), np.arange(p_sample.shape[0])), resample_estimator,
+		n_resamples = 100, method = 'percentile', random_state = 0, vectorized = False).confidence_interval
+	
+	return (estimation, ci.low, ci.high)

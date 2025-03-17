@@ -111,3 +111,10 @@ proportion_estimation = inps.estimation(cat_imputed_values["p"])
 proportion_interval = inps.confidence_interval(cat_imputed_values["p"])
 print(proportion_estimation)
 print(proportion_interval)
+
+def my_estimator(np_sample, p_sample):
+	matching_values = inps.matching_values(np_sample, p_sample, "target")
+	return inps.estimation(matching_values["p"], p_sample["weights"])
+
+advanced_interval = inps.advanced_confidence_interval(np_sample, p_sample, my_estimator)
+print(advanced_interval)

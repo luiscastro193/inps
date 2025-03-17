@@ -184,3 +184,14 @@ proportion_interval = inps.confidence_interval(cat_imputed_values["p"])
 ### Advanced models
 
 `inps.boosting_classifier()` and `inps.boosting_regressor()` will return advanced Gradient Boosting estimators ready to use for optimal results.
+
+### Advanced confidence intervals
+
+More precise (although slower) 95% confidence intervals may be obtained by bootstraping the samples.
+```python
+def my_estimator(np_sample, p_sample):
+	matching_values = inps.matching_values(np_sample, p_sample, "target")
+	return inps.estimation(matching_values["p"], p_sample["weights"])
+
+advanced_interval = inps.advanced_confidence_interval(np_sample, p_sample, my_estimator)
+```
