@@ -1,6 +1,6 @@
 """Python package for statistical inference from non-probability samples"""
 
-__version__ = "1.20"
+__version__ = "1.21"
 
 import numpy as np
 import pandas as pd
@@ -13,6 +13,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import RobustScaler, OneHotEncoder
 from sklearn.model_selection import StratifiedKFold
 from sklearn.linear_model import RidgeCV, LogisticRegressionCV
+from sklearn.metrics import get_scorer
 from sklearn.ensemble import HistGradientBoostingRegressor, HistGradientBoostingClassifier
 from scipy.stats import bootstrap
 
@@ -32,8 +33,6 @@ def default_preprocess(**kwargs):
 def make_preprocess_estimator(base_estimator, **kwargs):
 	if hasattr(base_estimator, "set_fit_request"):
 		base_estimator = base_estimator.set_fit_request(sample_weight = True)
-	if hasattr(base_estimator, "set_score_request"):
-		base_estimator = base_estimator.set_score_request(sample_weight = True)
 	
 	return Pipeline([
 		("preprocess", default_preprocess(**kwargs)),
@@ -41,7 +40,8 @@ def make_preprocess_estimator(base_estimator, **kwargs):
 	])
 
 def logistic_classifier(**kwargs):
-	return make_preprocess_estimator(LogisticRegressionCV(cv = StratifiedKFold(shuffle = True, random_state = 0), scoring = 'neg_log_loss', max_iter = 1000, **kwargs))
+	return make_preprocess_estimator(LogisticRegressionCV(cv = StratifiedKFold(shuffle = True, random_state = 0),
+		scoring = get_scorer('neg_log_loss').set_score_request(sample_weight = True), max_iter = 1000, **kwargs))
 
 def linear_regressor(**kwargs):
 	return make_preprocess_estimator(RidgeCV(**kwargs))
@@ -50,7 +50,7 @@ valid_dtypes = (types.is_numeric_dtype, lambda dtype: isinstance(dtype, types.Ca
 
 def set_categories(data):
 	invalid_columns = [column for column, dtype in data.dtypes.items() if not any(is_dtype(dtype) for is_dtype in valid_dtypes)]
-	data[invalid_columns] = data[invalid_columns].astype("category", copy = False)
+	data[invalid_columns] = data[invalid_columns].astype("category")
 
 def boosting_classifier(**kwargs):
 	my_model = HistGradientBoostingClassifier(categorical_features = 'from_dtype', random_state = 0, early_stopping = True, max_iter = 1000, **kwargs)
@@ -101,7 +101,7 @@ def propensities(np_sample, p_sample, weights_column = None, covariates = None, 
 	
 	if model is None: model = logistic_classifier()
 	
-	X = pd.concat((np_sample, p_sample), ignore_index = True, join = "inner", copy = False)
+	X = pd.concat((np_sample, p_sample), ignore_index = True, join = "inner")
 	set_categories(X)
 	y = np.concatenate((np.ones(np_size, dtype = bool), np.zeros(p_size, dtype = bool)))
 	sample_weight = np.concatenate((np.repeat(np.sum(weights) / np_size, np_size), weights))
@@ -122,7 +122,7 @@ def psa_weights(np_sample, p_sample, population_size = None, weights_column = No
 def matching_values(np_sample, p_sample, target_column, target_category = None, covariates = None, model = None, training_weight = None):
 	y = np_sample[target_column]
 	if y.isna().any(): raise ValueError("Missing values in target column")
-	is_numerical = types.is_numeric_dtype(y) and target_category is None
+	is_numerical = types.is_any_real_numeric_dtype(y) and target_category is None
 	if target_category is not None: y = y == target_category
 	if model is None: model = linear_regressor() if is_numerical else logistic_classifier()
 	
@@ -143,7 +143,7 @@ def matching_values(np_sample, p_sample, target_column, target_category = None, 
 			return model.predict(X)
 		else:
 			probs = model.predict_proba(X)
-			if target_category is None:
+			if target_category is None and not types.is_bool_dtype(y):
 				return {"categories": model.classes_, "probs": probs}
 			else:
 				return probs[:, tuple(model.classes_).index(True)]
